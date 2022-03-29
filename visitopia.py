@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 # author: cgcel
 
+import os
+
 import requests
+from tqdm import tqdm
 
 url_main = 'https://shop.vistopia.com.cn/'
 url_articles = 'https://api.vistopia.com.cn/api/v1/content/article_list?api_token=null&content_id={}&api_token=null&count={}'
@@ -29,18 +32,67 @@ class VISTOPIA():
         }
         self.session = requests.Session()
         self.session.headers.update(self.headers)
-    
-    def get_content_info_from_url(self, url):
+
+    def get_content_info_from_url(self, url: str):
+        """get_content_info_from_url
+
+        Args:
+            url (str): visitopia article_list url
+        """
         param = url.split('=')[-1]
         resp = self.session.get(url_content_info.format(param)).json()
+        self.title = resp['data']['title']
         self.content_id = resp['data']['content_id']
         self.article_count = resp['data']['article_count']
 
     def get_articles_data(self, url: str):
-        if url:
-            self.get_content_info_from_url(url)
-        resp = self.session.get(url_articles.format(self.content_id, self.article_count)).json()
-        print(len(resp['data']['article_list']))
+        """get_articles_data
+
+        Args:
+            url (str): visitopia article_list url
+
+        Returns:
+            json: articles json data
+        """
+        self.get_content_info_from_url(url)
+        resp = self.session.get(url_articles.format(
+            self.content_id, self.article_count)).json()
+        # for i in resp['data']['article_list']:
+        #     print(i['title'])
+        return resp
+
+    def download_articles(self, url: str):
+        """download_articles
+
+        Args:
+            url (str): visitopia article_list url
+        """
+        articles_data_json = self.get_articles_data(url=url)
+        if not os.path.exists(self.title):
+            os.makedirs(self.title)
+
+        # 开始下载
+
+        # 消除特殊字符
+        intab = "?*/\|.:><"
+        outtab = "         "
+        trantab = str.maketrans(intab, outtab)
+
+        articles = articles_data_json['data']['article_list']
+        for article in articles:
+            mp3_title = article['title'].translate(trantab)
+
+            mp3_url = article['media_key_full_url']
+            resp = self.session.get(mp3_url)
+
+            total_size_in_bytes = int(resp.headers.get('content-length', 0))
+            block_size = 1024
+            with open('{}/{}.mp3'.format(self.title, mp3_title), 'wb') as f:
+                with tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True) as pbar:
+                    for data in resp.iter_content(block_size):
+                        f.write(data)
+                        pbar.update(len(data))
+
 
 if __name__ == '__main__':
-    VISTOPIA().get_articles_data('https://shop.vistopia.com.cn/detail?id=TwTtq')
+    VISTOPIA().download_articles('https://shop.vistopia.com.cn/detail?id=TwTtq')
