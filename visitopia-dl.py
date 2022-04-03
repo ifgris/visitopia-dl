@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
 # author: cgcel
 
 from visitopia import VISTOPIA
