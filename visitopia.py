@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # author: cgcel
 
+import csv
+import json
 import os
 
 import requests
@@ -33,7 +35,12 @@ class VISTOPIA():
         self.session = requests.Session()
         self.session.headers.update(self.headers)
 
-    def get_content_info_from_url(self, url: str):
+        # 消除特殊字符
+        intab = "?*/\|.:><"
+        outtab = "         "
+        self._trantab = str.maketrans(intab, outtab)
+
+    def _get_content_info_from_url(self, url: str):
         """get content info from url
 
         Args:
@@ -45,7 +52,7 @@ class VISTOPIA():
         self.content_id = resp['data']['content_id']
         self.article_count = resp['data']['article_count']
 
-    def get_article_list(self, url: str):
+    def _get_article_list(self, url: str):
         """get articles data
 
         Args:
@@ -54,14 +61,14 @@ class VISTOPIA():
         Returns:
             json: articles json data
         """
-        self.get_content_info_from_url(url)
+        self._get_content_info_from_url(url)
         resp = self.session.get(url_article_list.format(
             self.content_id, self.article_count)).json()
         # for i in resp['data']['article_list']:
         #     print(i['title'])
         return resp
 
-    def generate_basics(self, url: str):
+    def _generate_basics(self, json_data: json):
         """generate directory and catalog including all titles of contents
 
         Args:
@@ -70,9 +77,35 @@ class VISTOPIA():
         # 新建存储文件夹
         if not os.path.exists(self.title):
             os.makedirs(self.title)
-        
+
         # 生成下载目录
-        pass
+        titles = [[x['title'].translate(self._trantab)]
+                  for x in json_data['data']['article_list']]
+        with open('{}/catalog.csv'.format(self.title), 'w', encoding='utf-8') as csv_file:
+            writer = csv.writer(csv_file)
+            writer.writerows(titles)
+
+    def _check_new(self):
+        """check for new articles
+
+        Returns:
+            bool: _description_
+        """
+        with open('{}/catalog.csv'.format(self.title), 'r', encoding='utf-8') as csv_file:
+            reader = csv.reader(csv_file)
+            rows = []
+            for row in reader:
+                try:
+                    rows.append(row[0])
+                except:
+                    pass
+            rows = set(rows)
+        file_list = set([x.split('.mp3')[0] for x in os.listdir(self.title)])
+        self._new_article = list(rows - file_list)
+        if len(self._new_article) > 0:
+            return True
+        else:
+            return False
 
     def download_all(self, url: str):
         """download all contents in article
@@ -80,30 +113,32 @@ class VISTOPIA():
         Args:
             url (str): visitopia article_list url
         """
-        articles_data_json = self.get_article_list(url=url)
+        articles_data_json = self._get_article_list(url=url)
 
-        self.generate_basics()
+        self._generate_basics(json_data=articles_data_json)
 
-        # 消除特殊字符
-        intab = "?*/\|.:><"
-        outtab = "         "
-        trantab = str.maketrans(intab, outtab)
+        if self._check_new():
+            print('New article found!')
 
-        # 开始下载
-        articles = articles_data_json['data']['article_list']
-        for article in articles:
-            mp3_title = article['title'].translate(trantab)
+            # 开始下载
+            articles = articles_data_json['data']['article_list']
+            for article in articles:
+                mp3_title = article['title'].translate(self._trantab)
+                if mp3_title in self._new_article:
+                    mp3_url = article['media_key_full_url']
+                    resp = self.session.get(mp3_url)
 
-            mp3_url = article['media_key_full_url']
-            resp = self.session.get(mp3_url)
-
-            total_size_in_bytes = int(resp.headers.get('content-length', 0))
-            block_size = 1024
-            with open('{}/{}.mp3'.format(self.title, mp3_title), 'wb') as f:
-                with tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True) as pbar:
-                    for data in resp.iter_content(block_size):
-                        f.write(data)
-                        pbar.update(len(data))
+                    total_size_in_bytes = int(
+                        resp.headers.get('content-length', 0))
+                    block_size = 1024
+                    with open('{}/{}.mp3'.format(self.title, mp3_title), 'wb') as f:
+                        with tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True) as pbar:
+                            for data in resp.iter_content(block_size):
+                                f.write(data)
+                                pbar.update(len(data))
+        else:
+            print('No update articles found! Exit...')
+            pass
 
     def download_single(self, article_id):
         """_summary_
@@ -115,4 +150,4 @@ class VISTOPIA():
 
 
 if __name__ == '__main__':
-    VISTOPIA().download_articles('https://shop.vistopia.com.cn/detail?id=TwTtq')
+    VISTOPIA().download_all('https://shop.vistopia.com.cn/detail?id=TwTtq')
