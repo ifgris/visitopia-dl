@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # author: cgcel
 
-from asyncio.windows_events import NULL
 import csv
 import json
 import os
@@ -101,7 +100,7 @@ class VISTOPIA():
                 except:
                     pass
             rows = set(rows)
-        file_list = set([x.split('.mp3')[0] for x in os.listdir(self.title)])
+        file_list = set([x.split('.')[0] for x in os.listdir(self.title)])
         self._new_article = list(rows - file_list)
         if len(self._new_article) > 0:
             return True
@@ -158,4 +157,4 @@ class VISTOPIA():
 
 
 if __name__ == '__main__':
-    VISTOPIA().download_all('https://shop.vistopia.com.cn/detail?id=234')
+    VISTOPIA().download_all('https://shop.vistopia.com.cn/detail?id=219')
