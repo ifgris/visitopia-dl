@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # author: cgcel
 
+from asyncio.windows_events import NULL
 import csv
 import json
 import os
@@ -123,15 +124,22 @@ class VISTOPIA():
             # 开始下载
             articles = articles_data_json['data']['article_list']
             for article in articles:
-                mp3_title = article['title'].translate(self._trantab)
-                if mp3_title in self._new_article:
-                    mp3_url = article['media_key_full_url']
-                    resp = self.session.get(mp3_url)
+                media_title = article['title'].translate(self._trantab)
+                if media_title in self._new_article:
+                    # 判定media是否为音频/视频
+                    media_url = ''
+                    if article['media_key_full_url'] != None and article['sample_media_full_url'] == None:
+                        media_url = article['media_key_full_url']
+                        media_type = 'mp3'
+                    elif article['media_key_full_url'] == None and article['sample_media_full_url'] != None:
+                        media_url = article['sample_media_full_url']
+                        media_type = 'mp4'
+                    resp = self.session.get(media_url)
 
                     total_size_in_bytes = int(
                         resp.headers.get('content-length', 0))
                     block_size = 1024
-                    with open('{}/{}.mp3'.format(self.title, mp3_title), 'wb') as f:
+                    with open('{}/{}.{}'.format(self.title, media_title, media_type), 'wb') as f:
                         with tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True) as pbar:
                             for data in resp.iter_content(block_size):
                                 f.write(data)
@@ -150,4 +158,4 @@ class VISTOPIA():
 
 
 if __name__ == '__main__':
-    VISTOPIA().download_all('https://shop.vistopia.com.cn/detail?id=TwTtq')
+    VISTOPIA().download_all('https://shop.vistopia.com.cn/detail?id=234')
