@@ -36,8 +36,8 @@ class VISTOPIA():
         self.session.headers.update(self.headers)
 
         # 消除特殊字符
-        intab = "?*/\|.:><\""
-        outtab = "          "
+        intab = "/\:?*|\"\'<>$"
+        outtab = "___________"
         self._trantab = str.maketrans(intab, outtab)
 
     def _get_content_info_from_url(self, url: str):
