@@ -9,6 +9,7 @@
 - 单线程下载音频/视频文件 (5min预览版)
 - 检索新内容并下载
 - 使用命令行运行脚本
+- 下载单个视频/音频文件
 
 ## 使用方法
 
@@ -26,13 +27,15 @@
 短参数:
 
 ```
-$ python visitopia-dl.py -u https://shop.vistopia.com.cn/detail?id=TwTtq
+$ python3 visitopia-dl.py -u https://shop.vistopia.com.cn/detail?id=TwTtq
+$ python3 visitopia-dl.py -u https://shop.vistopia.com.cn/article?article_id=426144&source=article
 ```
 
 长参数:
 
 ```
-$ python visitopia-dl.py --url=https://shop.vistopia.com.cn/detail?id=TwTtq
+$ python3 visitopia-dl.py --url=https://shop.vistopia.com.cn/detail?id=TwTtq
+$ python3 visitopia-dl.py --url=https://shop.vistopia.com.cn/article?article_id=426144&source=article
 ```
 
 ## Todo
@@ -42,7 +45,7 @@ $ python visitopia-dl.py --url=https://shop.vistopia.com.cn/detail?id=TwTtq
 - [x] 命令行参数
 - [x] 免费视频栏目预览版下载
 - [ ] 免费视频栏目完整版下载
-- [ ] 单篇节目下载
+- [x] 单篇节目下载
 - [ ] 多线程下载
 - [ ] 断点继续下载
 

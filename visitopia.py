@@ -4,6 +4,7 @@
 import csv
 import json
 import os
+import re
 
 import requests
 from tqdm import tqdm
@@ -11,6 +12,7 @@ from tqdm import tqdm
 url_main = 'https://shop.vistopia.com.cn/'
 url_article_list = 'https://api.vistopia.com.cn/api/v1/content/article_list?api_token=null&content_id={}&api_token=null&count={}'
 url_content_info = 'https://api.vistopia.com.cn/api/v1/content/content-show/{}?api_token=&content_channel='
+url_section_info = 'https://api.vistopia.com.cn/api/v1/reader/section-detail?api_token=&article_id={}'
 
 
 class VISTOPIA():
@@ -20,7 +22,6 @@ class VISTOPIA():
             'accept-encoding': 'gzip, deflate, br',
             'accept-language': 'zh,zh-CN;q=0.9,en-US;q=0.8,en;q=0.7',
             'cache-control': 'max-age=0',
-            'cookie': 'Hm_lvt_5e6a1cf9cb572a0995800d3c9062d28c=1648466267; user_tk=null; Hm_lpvt_5e6a1cf9cb572a0995800d3c9062d28c=1648468417',
             'referer': 'https://shop.vistopia.com.cn/index',
             'sec-ch-ua': '" Not A;Brand";v="99", "Chromium";v="99", "Google Chrome";v="99"',
             'sec-ch-ua-mobile': '?0',
@@ -52,6 +53,19 @@ class VISTOPIA():
         self.content_id = resp['data']['content_id']
         self.article_count = resp['data']['article_count']
 
+    def _get_section_info_from_url(self, url: str):
+        """get section info from url
+
+        Args:
+            url (str): visitopia section  url
+        """
+        pattern = re.compile(r'article_id=(\d+)')
+        param = pattern.findall(url)[0]
+        resp = self.session.get(url_section_info.format(param)).json()
+        self.title = resp['data']['part'][0]['title']
+        self.part_id = resp['data']['part'][0]['part_id']
+        return resp
+
     def _get_article_list(self, url: str):
         """get articles data
 
@@ -79,11 +93,19 @@ class VISTOPIA():
             os.makedirs(self.title)
 
         # 生成下载目录
-        titles = [[x['title'].translate(self._trantab)]
-                  for x in json_data['data']['article_list']]
-        with open('{}/catalog.csv'.format(self.title), 'w', encoding='utf-8') as csv_file:
-            writer = csv.writer(csv_file)
-            writer.writerows(titles)
+        try:
+            if self.content_id:
+                titles = [[x['title'].translate(self._trantab)]
+                          for x in json_data['data']['article_list']]
+                with open('{}/catalog.csv'.format(self.title), 'w', encoding='utf-8') as csv_file:
+                    writer = csv.writer(csv_file)
+                    writer.writerows(titles)
+        except:
+            try:
+                if self.part_id:
+                    pass
+            except:
+                return
 
     def _check_new(self):
         """check for new articles
@@ -111,7 +133,7 @@ class VISTOPIA():
         """download all contents in article
 
         Args:
-            url (str): visitopia article_list url
+            url (str): example: https://shop.vistopia.com.cn/detail?id=219
         """
         articles_data_json = self._get_article_list(url=url)
 
@@ -147,14 +169,38 @@ class VISTOPIA():
             print('No update articles found! Exit...')
             pass
 
-    def download_single(self, article_id):
-        """_summary_
+    def download_single(self, url: str):
+        """download single media from url
 
         Args:
-            article_id (_type_): _description_
+            url (str): example: https://shop.vistopia.com.cn/article?article_id=426144&source=article
         """
-        pass
+        section_data_json = self._get_section_info_from_url(url=url)
+        self._generate_basics(json_data=section_data_json)
+
+        # 开始下载
+        media_title = self.title.translate(self._trantab)
+        # 判定media是否为音频/视频
+        media_url = section_data_json['data']['part'][0]['media_key_full_url']
+        if section_data_json['data']['part'][0]['media_type'] == '1':
+            media_url = section_data_json['data']['part'][0]['media_key_full_url']
+            media_type = 'mp3'
+        elif section_data_json['data']['part'][0]['media_type'] == '2':
+            media_url = section_data_json['data']['part'][0]['sample_media_full_url']
+            media_type = 'mp4'
+        resp = self.session.get(media_url)
+
+        total_size_in_bytes = int(
+            resp.headers.get('content-length', 0))
+        block_size = 1024
+        with open('{}/{}.{}'.format(self.title, media_title, media_type), 'wb') as f:
+            with tqdm(total=total_size_in_bytes, unit='iB', unit_scale=True) as pbar:
+                for data in resp.iter_content(block_size):
+                    f.write(data)
+                    pbar.update(len(data))
 
 
 if __name__ == '__main__':
-    VISTOPIA().download_all('https://shop.vistopia.com.cn/detail?id=219')
+    # VISTOPIA().download_all('https://shop.vistopia.com.cn/detail?id=219')
+    VISTOPIA().download_single(
+        'https://shop.vistopia.com.cn/article?article_id=426144&source=article')

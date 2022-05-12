@@ -27,7 +27,11 @@ def main():
             sys.exit()
         elif o in ("-u", "--url"):
             url = a
-            VISTOPIA().download_all(url=url)
+            if 'detail?id' in url:
+                VISTOPIA().download_all(url=url)
+            elif 'article?article_id' in url:
+                VISTOPIA().download_single(url=url)
+
         else:
             assert False, "unhandled option"
 
